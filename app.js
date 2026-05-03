@@ -94,7 +94,11 @@ function shouldShowUnit(courseId, unitId) {
   return no <= 12;
 }
 
-/** @type {{ unit_title: string, questions: Array<{id:string, type:string, question:string, options:string[], answer:number, commentary:string}> } | null} */
+/**
+ * 単一単元読み込み時も、複数単元マージ時も同じ形。
+ * マージ時は questions を結合し、各問の id は `${単元catalog id}:${元のid}` に正規化する。
+ * @type {{ unit_title: string, questions: Array<{id:string, type:string, question:string, options:string[], answer:number, commentary:string}> } | null}
+ */
 let currentUnit = null;
 
 /** @type {'idle'|'homework'|'test'|'admin'} */
@@ -126,10 +130,9 @@ let testItems = [];
 const els = {
   catalogHint: document.getElementById("catalogHint"),
   courseSelect: document.getElementById("courseSelect"),
-  unitSelect: document.getElementById("unitSelect"),
-  unitSelectCombo: document.getElementById("unitSelectCombo"),
-  unitSelectTrigger: document.getElementById("unitSelectTrigger"),
-  unitSelectPanel: document.getElementById("unitSelectPanel"),
+  unitCheckShell: document.getElementById("unitCheckShell"),
+  unitCheckEmpty: document.getElementById("unitCheckEmpty"),
+  unitCheckScroll: document.getElementById("unitCheckScroll"),
   btnLoadUnit: document.getElementById("btnLoadUnit"),
   unitTitleDisplay: document.getElementById("unitTitleDisplay"),
   modeButtons: document.getElementById("modeButtons"),
@@ -266,18 +269,6 @@ function normalizeUnitRef(u, ctx, index) {
   return { id, title, jsonPath };
 }
 
-/**
- * @param {{ id: string, name: string, fields: Array<{ id: string, name: string, units: Array<{ id: string, title: string, jsonPath: string }> }> }} course
- * @param {string} unitId
- */
-function findUnitInCourse(course, unitId) {
-  for (const field of course.fields) {
-    const u = field.units.find((x) => x.id === unitId);
-    if (u) return u;
-  }
-  return null;
-}
-
 function normalizeUnit(raw) {
   if (!raw || typeof raw !== "object") throw new Error("JSONの形式が不正です。");
   const title = String(raw.unit_title ?? "").trim() || "（無題の単元）";
@@ -310,6 +301,148 @@ function setUnit(data) {
   currentUnit = data;
   els.unitTitleDisplay.textContent = `単元名: ${data.unit_title}（全 ${data.questions.length} 問）`;
   if (els.btnAdmin) els.btnAdmin.style.display = ENABLE_ADMIN_MODE ? "inline-flex" : "none";
+}
+
+/**
+ * チェック済みの単元参照を、カタログ上の表示順（分野→単元）で返す。
+ * @returns {Array<{ id: string, title: string, jsonPath: string }>}
+ */
+function getCheckedUnitRefsOrdered() {
+  const shell = els.unitCheckScroll;
+  if (!shell || shell.hidden) return [];
+  const courseId = els.courseSelect.value;
+  if (!courseId || !catalogData) return [];
+  const course = catalogData.courses.find((c) => c.id === courseId);
+  if (!course) return [];
+  const checked = new Set(
+    [...shell.querySelectorAll('input[type="checkbox"][name="unitPick"]')]
+      .filter((el) => el instanceof HTMLInputElement && el.checked)
+      .map((el) => el.value),
+  );
+  if (checked.size === 0) return [];
+  /** @type {Array<{ id: string, title: string, jsonPath: string }>} */
+  const out = [];
+  for (const field of course.fields) {
+    for (const u of field.units) {
+      if (!shouldShowUnit(course.id, u.id)) continue;
+      if (checked.has(u.id)) out.push(u);
+    }
+  }
+  return out;
+}
+
+function updateLoadUnitButtonState() {
+  const ok = !!(catalogData && els.courseSelect.value && getCheckedUnitRefsOrdered().length > 0);
+  els.btnLoadUnit.disabled = !ok;
+}
+
+function onUnitCheckboxChange() {
+  resetUnitSelectionState();
+  updateLoadUnitButtonState();
+}
+
+function renderUnitCheckboxPanel() {
+  const empty = els.unitCheckEmpty;
+  const scroll = els.unitCheckScroll;
+  if (!empty || !scroll) return;
+
+  scroll.innerHTML = "";
+  if (!catalogData) {
+    scroll.hidden = true;
+    empty.hidden = false;
+    empty.textContent = "—";
+    updateLoadUnitButtonState();
+    return;
+  }
+
+  const cid = els.courseSelect.value;
+  if (!cid) {
+    scroll.hidden = true;
+    empty.hidden = false;
+    empty.textContent = "— まずコースを選択 —";
+    updateLoadUnitButtonState();
+    return;
+  }
+
+  const course = catalogData.courses.find((c) => c.id === cid);
+  if (!course) {
+    scroll.hidden = true;
+    empty.hidden = false;
+    empty.textContent = "— まずコースを選択 —";
+    updateLoadUnitButtonState();
+    return;
+  }
+
+  let any = false;
+  for (const field of course.fields) {
+    const units = field.units.filter((u) => shouldShowUnit(course.id, u.id));
+    if (units.length === 0) continue;
+    any = true;
+    const g = document.createElement("div");
+    g.className = "unit-check-group";
+    const gl = document.createElement("div");
+    gl.className = "unit-check-group-label";
+    gl.textContent = field.name;
+    g.appendChild(gl);
+    for (const u of units) {
+      const row = document.createElement("label");
+      row.className = "unit-check-row";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = "unitPick";
+      cb.value = u.id;
+      cb.dataset.jsonPath = u.jsonPath;
+      const span = document.createElement("span");
+      span.className = "unit-check-row-title";
+      span.textContent = u.title;
+      row.appendChild(cb);
+      row.appendChild(span);
+      g.appendChild(row);
+    }
+    scroll.appendChild(g);
+  }
+
+  if (!any) {
+    scroll.hidden = true;
+    empty.hidden = false;
+    empty.textContent = "— 表示できる単元がありません —";
+    updateLoadUnitButtonState();
+    return;
+  }
+
+  empty.hidden = true;
+  scroll.hidden = false;
+  updateLoadUnitButtonState();
+}
+
+/**
+ * @param {Array<{ id: string, title: string, jsonPath: string }>} refs
+ */
+async function fetchMergeNormalizeUnits(refs) {
+  if (refs.length === 0) throw new Error("単元が選択されていません。");
+  const parts = await Promise.all(
+    refs.map(async (ref) => {
+      const r = await fetch(ref.jsonPath, { cache: "no-store" });
+      if (!r.ok) throw new Error(`「${ref.title}」: HTTP ${r.status}`);
+      const raw = await r.json();
+      return { ref, norm: normalizeUnit(raw) };
+    }),
+  );
+  /** @type {Array<{id:string, type:string, question:string, options:string[], answer:number, commentary:string}>} */
+  const questions = [];
+  for (const { ref, norm } of parts) {
+    for (const q of norm.questions) {
+      questions.push({
+        ...q,
+        id: `${ref.id}:${q.id}`,
+      });
+    }
+  }
+  const unit_title =
+    parts.length === 1
+      ? parts[0].norm.unit_title
+      : `複数単元（${parts.length}件）: ${parts.map((p) => p.norm.unit_title).join(" · ")}`;
+  return { unit_title, questions };
 }
 
 /**
@@ -825,6 +958,9 @@ function startTest() {
   els.testUnitLine.textContent = `単元「${currentUnit.unit_title}」`;
   els.testIntro.textContent = `${n} 問すべてに答えてから「提出する」で答え合わせできます。制限時間は ${TEST_TIME_LIMIT_SEC} 秒です。時間が来ると未回答は不正解のまま自動提出されます。`;
   renderTestForm();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  });
 
   testTimerIntervalId = window.setInterval(() => {
     if (currentMode !== "test" || !testTimerEndAt) return;
@@ -863,64 +999,6 @@ function resetUnitSelectionState() {
   els.unitTitleDisplay.textContent = "単元名: （未読み込み）";
 }
 
-function syncUnitTriggerFromSelect() {
-  const sel = els.unitSelect;
-  const trig = els.unitSelectTrigger;
-  trig.disabled = sel.disabled;
-  const opt = sel.options[sel.selectedIndex];
-  trig.textContent = opt ? opt.textContent : "—";
-}
-
-function rebuildUnitDropdownPanel() {
-  const panel = els.unitSelectPanel;
-  panel.innerHTML = "";
-  const sel = els.unitSelect;
-  for (const child of sel.children) {
-    if (child.tagName === "OPTION") {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "unit-select-option";
-      btn.role = "option";
-      btn.dataset.value = child.value;
-      btn.textContent = child.textContent;
-      panel.appendChild(btn);
-    } else if (child.tagName === "OPTGROUP") {
-      const g = document.createElement("div");
-      g.className = "unit-select-group";
-      const gl = document.createElement("div");
-      gl.className = "unit-select-group-label";
-      gl.textContent = child.label;
-      g.appendChild(gl);
-      for (const opt of child.querySelectorAll("option")) {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "unit-select-option";
-        b.dataset.value = opt.value;
-        b.textContent = opt.textContent;
-        g.appendChild(b);
-      }
-      panel.appendChild(g);
-    }
-  }
-}
-
-function setUnitPanelOpen(open) {
-  const panel = els.unitSelectPanel;
-  const trig = els.unitSelectTrigger;
-  panel.hidden = !open;
-  trig.setAttribute("aria-expanded", open ? "true" : "false");
-}
-
-function closeUnitPanel() {
-  setUnitPanelOpen(false);
-}
-
-function refreshUnitCustomUI() {
-  rebuildUnitDropdownPanel();
-  syncUnitTriggerFromSelect();
-  closeUnitPanel();
-}
-
 async function loadCatalog() {
   els.catalogHint.hidden = false;
   els.catalogHint.textContent = "データを読み込み中です…";
@@ -938,10 +1016,8 @@ async function loadCatalog() {
       "data/catalog.json を読み込めませんでした。プロジェクト直下で HTTP サーバーを起動し、ブラウザから開いてください（file:// では fetch が使えません）。";
     els.courseSelect.innerHTML = '<option value="">— 読み込み失敗 —</option>';
     els.courseSelect.disabled = true;
-    els.unitSelect.innerHTML = '<option value="">— —</option>';
-    els.unitSelect.disabled = true;
     els.btnLoadUnit.disabled = true;
-    refreshUnitCustomUI();
+    renderUnitCheckboxPanel();
     return;
   }
 
@@ -953,80 +1029,24 @@ async function loadCatalog() {
     opt.textContent = c.name;
     els.courseSelect.appendChild(opt);
   });
-  refreshUnitCustomUI();
+  renderUnitCheckboxPanel();
 }
 
 function onCourseChange() {
-  const cid = els.courseSelect.value;
-  els.unitSelect.innerHTML = "";
-  els.unitSelect.disabled = true;
-  els.btnLoadUnit.disabled = true;
   resetUnitSelectionState();
-
-  if (!cid || !catalogData) {
-    const ph0 = document.createElement("option");
-    ph0.value = "";
-    ph0.textContent = "— まずコースを選択 —";
-    els.unitSelect.appendChild(ph0);
-    refreshUnitCustomUI();
-    return;
-  }
-
-  const course = catalogData.courses.find((c) => c.id === cid);
-  if (!course) {
-    const ph1 = document.createElement("option");
-    ph1.value = "";
-    ph1.textContent = "— まずコースを選択 —";
-    els.unitSelect.appendChild(ph1);
-    refreshUnitCustomUI();
-    return;
-  }
-
-  const ph = document.createElement("option");
-  ph.value = "";
-  ph.textContent = "— 単元を選択 —";
-  els.unitSelect.appendChild(ph);
-
-  for (const field of course.fields) {
-    const og = document.createElement("optgroup");
-    og.label = field.name;
-    let added = 0;
-    for (const u of field.units) {
-      if (!shouldShowUnit(course.id, u.id)) continue;
-      const opt = document.createElement("option");
-      opt.value = u.id;
-      opt.textContent = u.title;
-      opt.dataset.jsonPath = u.jsonPath;
-      og.appendChild(opt);
-      added += 1;
-    }
-    if (added > 0) els.unitSelect.appendChild(og);
-  }
-  els.unitSelect.disabled = false;
-  refreshUnitCustomUI();
-}
-
-function onUnitChange() {
-  const hasUnit = !!els.unitSelect.value;
-  els.btnLoadUnit.disabled = !hasUnit;
-  resetUnitSelectionState();
+  renderUnitCheckboxPanel();
 }
 
 async function onLoadUnit() {
   const cid = els.courseSelect.value;
-  const uid = els.unitSelect.value;
-  if (!cid || !uid || !catalogData) return;
+  if (!cid || !catalogData) return;
 
-  const course = catalogData.courses.find((c) => c.id === cid);
-  if (!course) return;
-  const unit = findUnitInCourse(course, uid);
-  if (!unit) return;
+  const refs = getCheckedUnitRefsOrdered();
+  if (refs.length === 0) return;
 
   try {
-    const r = await fetch(unit.jsonPath, { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const raw = await r.json();
-    setUnit(normalizeUnit(raw));
+    const merged = await fetchMergeNormalizeUnits(refs);
+    setUnit(merged);
   } catch (err) {
     const msg =
       err instanceof Error
@@ -1039,38 +1059,15 @@ async function onLoadUnit() {
 
 els.courseSelect.addEventListener("change", onCourseChange);
 
-els.unitSelectTrigger.addEventListener("click", () => {
-  if (els.unitSelectTrigger.disabled) return;
-  setUnitPanelOpen(els.unitSelectPanel.hidden);
-});
+if (els.unitCheckShell) {
+  els.unitCheckShell.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (t.name !== "unitPick") return;
+    onUnitCheckboxChange();
+  });
+}
 
-els.unitSelectPanel.addEventListener("click", (e) => {
-  const t = e.target;
-  if (!(t instanceof HTMLElement)) return;
-  const btn = t.closest(".unit-select-option");
-  if (!btn || !els.unitSelectPanel.contains(btn)) return;
-  const val = btn.dataset.value ?? "";
-  els.unitSelect.value = val;
-  els.unitSelect.dispatchEvent(new Event("change", { bubbles: true }));
-  syncUnitTriggerFromSelect();
-  closeUnitPanel();
-});
-
-document.addEventListener("click", (e) => {
-  const t = e.target;
-  if (!(t instanceof Node)) return;
-  if (els.unitSelectCombo.contains(t)) return;
-  closeUnitPanel();
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  if (!els.unitSelectPanel.hidden) {
-    closeUnitPanel();
-  }
-});
-
-els.unitSelect.addEventListener("change", onUnitChange);
 els.btnLoadUnit.addEventListener("click", () => {
   try {
     void onLoadUnit();

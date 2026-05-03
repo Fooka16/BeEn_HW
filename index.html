@@ -10,7 +10,7 @@
     <div class="app">
       <header class="header">
         <div class="brand">
-          <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true"></span>
           <h1 class="brand-name">BeEngineer</h1>
         </div>
         <p class="tagline">宿題モードまたは確認テストで学習できます。</p>
@@ -28,29 +28,16 @@
             </select>
           </div>
           <div class="field-block field-block--unit">
-            <label class="inline-label" for="unitSelectTrigger">単元（分野ごとにグループ表示）</label>
-            <div class="unit-select-combo" id="unitSelectCombo">
-              <button
-                type="button"
-                class="unit-select-trigger select"
-                id="unitSelectTrigger"
-                disabled
-                aria-haspopup="listbox"
-                aria-expanded="false"
-                aria-controls="unitSelectPanel"
-              >
-                — まずコースを選択 —
-              </button>
-              <div class="unit-select-panel" id="unitSelectPanel" role="listbox" hidden></div>
-              <select id="unitSelect" class="unit-select-native" tabindex="-1" aria-hidden="true" disabled>
-                <option value="">— まずコースを選択 —</option>
-              </select>
+            <span class="inline-label" id="unitFieldLabel">単元（複数選択可・分野ごとにグループ）</span>
+            <div class="unit-check-shell" id="unitCheckShell">
+              <p class="hint unit-check-empty" id="unitCheckEmpty">— まずコースを選択 —</p>
+              <div class="unit-check-scroll" id="unitCheckScroll" role="group" aria-labelledby="unitFieldLabel" hidden></div>
             </div>
           </div>
         </div>
 
         <div class="setup-row">
-          <button type="button" class="btn btn-primary" id="btnLoadUnit" disabled>単元を読み込む</button>
+          <button type="button" class="btn btn-primary" id="btnLoadUnit" disabled>選択した単元を読み込む</button>
         </div>
 
         <p class="unit-title-display" id="unitTitleDisplay">単元名: （未読み込み）</p>

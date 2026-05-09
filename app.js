@@ -27,13 +27,17 @@
  * Aコース: 単元IDは A-u1 … A-u36（表示順）。jsonPath は data/A/unit01.json … unit36.json に対応。
  */
 
-const TEST_COUNT = 10;
-/** 確認テストの制限時間（秒） */
-const TEST_TIME_LIMIT_SEC = 300;
+const TEST_COUNT = 20;
+/** 確認テストで問題を抽出する単元の最大数（単元ごとに偏りを減らす） */
+const TEST_MAX_THEME_UNITS = 4;
+/** 上記で選んだ各単元から取る問題数の上限 */
+const TEST_PER_THEME = 5;
+/** 確認テストの制限時間（秒）（10分） */
+const TEST_TIME_LIMIT_SEC = 600;
 /** 管理者確認モードの表示可否。ローカル確認時だけ true にする */
 const ENABLE_ADMIN_MODE = false;
 
-/** 10問のとき 8 問以上で合格（問数が少ない単元は 80% 切り上げ） */
+/** 確認テスト: 80% 以上で合格（問数が少ないときは切り上げ・最低 1） */
 function testPassThreshold(questionCount) {
   return Math.max(1, Math.ceil(questionCount * 0.8));
 }
@@ -435,6 +439,7 @@ async function fetchMergeNormalizeUnits(refs) {
       questions.push({
         ...q,
         id: `${ref.id}:${q.id}`,
+        sourceUnitId: ref.id,
       });
     }
   }
@@ -488,6 +493,67 @@ function shuffle(arr) {
 function pickRandomQuestions(all, n) {
   if (all.length <= n) return shuffle([...all.map((_, i) => i)]);
   return shuffle([...all.map((_, i) => i)]).slice(0, n);
+}
+
+/**
+ * catalog 単元単位でグループし、ランダムに最大 TEST_MAX_THEME_UNITS 単元を選び、各単元から最大 TEST_PER_THEME 問ずつ選ぶ。
+ * 不足分は全体からランダム補充。単一単元のときは従来どおりプール全体から TEST_COUNT 問。
+ * @param {Array<{ id?: string, sourceUnitId?: string }>} questions
+ * @returns {number[]}
+ */
+function pickBalancedTestQuestionIndices(questions) {
+  const nq = questions.length;
+  if (nq === 0) return [];
+
+  /** @type {Record<string, number[]>} */
+  const byUnit = {};
+  questions.forEach((q, idx) => {
+    const sid = /** @type {{ sourceUnitId?: string }} */ (q).sourceUnitId;
+    const uid =
+      typeof sid === "string" && sid.trim()
+        ? sid.trim()
+        : (() => {
+            const raw = String(q.id ?? "");
+            const i = raw.indexOf(":");
+            return i > 0 ? raw.slice(0, i) : "__default__";
+          })();
+    if (!byUnit[uid]) byUnit[uid] = [];
+    byUnit[uid].push(idx);
+  });
+
+  const unitIds = shuffle(Object.keys(byUnit));
+  const themeSlots = Math.min(TEST_MAX_THEME_UNITS, unitIds.length);
+
+  if (themeSlots <= 1) {
+    return pickRandomQuestions(questions, Math.min(TEST_COUNT, nq));
+  }
+
+  const chosenThemes = unitIds.slice(0, themeSlots);
+  const pickedSet = new Set();
+  /** @type {number[]} */
+  const picked = [];
+
+  for (const uid of chosenThemes) {
+    const pool = shuffle(byUnit[uid]).filter((i) => !pickedSet.has(i));
+    const take = Math.min(TEST_PER_THEME, pool.length);
+    for (let j = 0; j < take; j++) {
+      picked.push(pool[j]);
+      pickedSet.add(pool[j]);
+    }
+  }
+
+  if (picked.length < TEST_COUNT) {
+    const restPool = shuffle(
+      [...Array(nq).keys()].filter((i) => !pickedSet.has(i)),
+    );
+    for (const i of restPool) {
+      if (picked.length >= TEST_COUNT) break;
+      picked.push(i);
+      pickedSet.add(i);
+    }
+  }
+
+  return shuffle(picked.slice(0, Math.min(TEST_COUNT, picked.length)));
 }
 
 /**
@@ -931,13 +997,14 @@ function closeTestBackConfirm() {
 function startTest() {
   if (!currentUnit) return;
   const nq = currentUnit.questions.length;
-  const n = Math.min(TEST_COUNT, nq);
-  if (n === 0) return;
+  if (nq === 0) return;
 
   clearTestTimer();
   testSubmitting = false;
 
-  testSubset = pickRandomQuestions(currentUnit.questions, n);
+  testSubset = pickBalancedTestQuestionIndices(currentUnit.questions);
+  const n = testSubset.length;
+  if (n === 0) return;
   testItems = testSubset.map((qIdx) => {
     const q = currentUnit.questions[qIdx];
     const { labels, answerIndex } = shuffleOptionsOrder(q.options, q.answer);

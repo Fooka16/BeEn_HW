@@ -28,7 +28,7 @@
  */
 
 const TEST_COUNT = 20;
-/** 確認テストで問題を抽出する単元の最大数（単元ごとに偏りを減らす） */
+/** 確認テストで問題を抽出する単元の最大数（単元ごとに偏りを減らす）。セットアップの単元チェック上限も同じ。 */
 const TEST_MAX_THEME_UNITS = 4;
 /** 上記で選んだ各単元から取る問題数の上限 */
 const TEST_PER_THEME = 5;
@@ -335,7 +335,29 @@ function getCheckedUnitRefsOrdered() {
   return out;
 }
 
+/** チェック済みが TEST_MAX_THEME_UNITS に達したら、それ以外のチェックボックスは選べなくする */
+function syncUnitPickAvailability() {
+  const shell = els.unitCheckScroll;
+  if (!shell || shell.hidden) return;
+  const boxes = [...shell.querySelectorAll('input[type="checkbox"][name="unitPick"]')].filter(
+    (el) => el instanceof HTMLInputElement,
+  );
+  if (boxes.length === 0) return;
+  const checkedCount = boxes.filter((b) => b.checked).length;
+  const lock = checkedCount >= TEST_MAX_THEME_UNITS;
+  for (const b of boxes) {
+    if (lock && !b.checked) {
+      b.disabled = true;
+      b.title = `単元は最大${TEST_MAX_THEME_UNITS}つまで選択できます`;
+    } else {
+      b.disabled = false;
+      b.removeAttribute("title");
+    }
+  }
+}
+
 function updateLoadUnitButtonState() {
+  syncUnitPickAvailability();
   const ok = !!(catalogData && els.courseSelect.value && getCheckedUnitRefsOrdered().length > 0);
   els.btnLoadUnit.disabled = !ok;
 }
@@ -455,9 +477,36 @@ async function fetchMergeNormalizeUnits(refs) {
  * 許可タグ以外はタグを外して中身のみ残す（属性は全削除）。
  * @param {string} html
  */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * &lt;pre&gt; ブロック外の HTML 風タグ（例: &lt;span&gt;）を文字として表示する。
+ * 問題文でタグ名を扱う単元向け。&lt;pre&gt; 内のコード表示はそのまま残す。
+ * @param {string} html
+ */
+function escapeLiteralHtmlTagsOutsidePre(html) {
+  const preBlocks = [];
+  let n = 0;
+  const withPlaceholders = String(html).replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (block) => {
+    const token = `\x00PRE${n++}\x00`;
+    preBlocks.push(block);
+    return token;
+  });
+  const escaped = withPlaceholders.replace(/<[^>]+>/g, (tag) =>
+    tag.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+  );
+  return preBlocks.reduce((s, block, i) => s.replace(`\x00PRE${i}\x00`, block), escaped);
+}
+
 function sanitizeRichHtml(html) {
   const tpl = document.createElement("template");
-  tpl.innerHTML = String(html);
+  tpl.innerHTML = escapeLiteralHtmlTagsOutsidePre(html);
   const allowed = new Set(["PRE", "CODE", "BR", "STRONG", "EM", "B", "I", "SPAN", "P"]);
   function clean(node) {
     const children = [...node.childNodes];
@@ -736,6 +785,36 @@ function renderTestForm() {
 }
 
 /**
+ * 確認テスト結果：選択した答え・正しい答えの表示 HTML
+ * @param {{ labels: string[], answerIndex: number }} item
+ * @param {number|null} sel
+ * @param {boolean} ok
+ */
+function buildTestReviewAnswersHtml(item, sel, ok) {
+  const correctLabel = item.labels[item.answerIndex] ?? "—";
+  if (ok) {
+    return `<div class="test-review-answers">
+      <p class="test-review-answer test-review-answer--correct">
+        <span class="test-review-answer-label">正しい答え</span>
+        <span class="test-review-answer-text">${escapeHtml(correctLabel)}</span>
+      </p>
+    </div>`;
+  }
+  const selectedLabel =
+    sel !== null && sel >= 0 && sel < item.labels.length ? item.labels[sel] : "（未回答）";
+  return `<div class="test-review-answers">
+    <p class="test-review-answer test-review-answer--selected">
+      <span class="test-review-answer-label">あなたの答え</span>
+      <span class="test-review-answer-text">${escapeHtml(selectedLabel)}</span>
+    </p>
+    <p class="test-review-answer test-review-answer--correct">
+      <span class="test-review-answer-label">正しい答え</span>
+      <span class="test-review-answer-text">${escapeHtml(correctLabel)}</span>
+    </p>
+  </div>`;
+}
+
+/**
  * @param {boolean} [fromTimeUp] 制限時間切れによる自動提出（未回答は不正解として採点）
  */
 function submitTest(fromTimeUp = false) {
@@ -805,6 +884,7 @@ function submitTest(fromTimeUp = false) {
           <span class="test-review-label">${headLabel}</span>
         </div>
         <div class="question-text">${sanitizeRichHtml(item.question.question)}</div>
+        ${buildTestReviewAnswersHtml(item, sel, ok)}
         <div class="commentary"><span class="commentary-label">解説</span>${sanitizeRichHtml(item.question.commentary)}</div>
       </div>`,
     );

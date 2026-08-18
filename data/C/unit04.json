@@ -81,7 +81,7 @@
       "question": "APIリクエストが「成功」したことを示す一般的なHTTPステータスコードは何番ですか？",
       "options": ["200", "400", "404", "500"],
       "answer": 0,
-      "commentary": "200 OKはリクエストが正常に処理されたことを示します。教科書でもこの番号で判定しています。"
+      "commentary": "200 OKはリクエストが正常に処理されたことを示します。"
     },
     {
       "id": 10,
@@ -118,7 +118,7 @@
     {
       "id": 14,
       "type": "用語理解",
-      "question": "Flutterで「表」形式のレイアウトを構築するためのウィジェットは何ですか？",
+      "question": "Flutterで、`TableRow` を子要素に用いて格子状の表を組む基本的なウィジェットは何ですか？",
       "options": ["Grid", "List", "Table", "DataTable"],
       "answer": 2,
       "commentary": "Tableウィジェットを使用すると、行（TableRow）を重ねて表を作成できます。"

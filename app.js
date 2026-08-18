@@ -86,16 +86,15 @@ function getUnitNo(unitId) {
 }
 
 /**
- * 1学期用: すべてのコースで u12 まで表示する。
+ * カタログに載っている単元はすべて表示する。
  * @param {string} courseId
  * @param {string} unitId
  */
 function shouldShowUnit(courseId, unitId) {
   // courseId は将来の拡張用（例: コース別で上限を変える）に残している
   void courseId;
-  const no = getUnitNo(unitId);
-  if (no === null) return true;
-  return no <= 12;
+  void unitId;
+  return true;
 }
 
 /**

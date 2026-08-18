@@ -190,7 +190,7 @@
     {
       "id": 23,
       "type": "コード穴埋め",
-      "question": "Text ウィジェット内で、変数の値を埋め込むための記号は何ですか？<pre><code>int count = 10;\nText('回数は $___ です')</code></pre>",
+      "question": "Text ウィジェット内で、変数の値を埋め込むコードです。空欄に入る変数名はどれですか？<pre><code>int count = 10;\nText('回数は $___ です')</code></pre>",
       "options": ["name", "value", "count", "data"],
       "answer": 2,
       "commentary": "Dart の文字列補間機能により、$変数名 と書くことで文字列内に値を埋め込めます。"
@@ -198,7 +198,7 @@
     {
       "id": 24,
       "type": "文法チェック",
-      "question": "BoxDecoration のプロパティで、枠線の太さや色を指定するために使用するクラスは何ですか？",
+      "question": "BoxDecoration の border プロパティで、四辺すべてに同じ太さ・色の枠線を作成するために使う記述はどれですか？",
       "options": ["Border", "Border.all", "Outline", "Edge"],
       "answer": 1,
       "commentary": "border プロパティに Border.all(color: Colors.grey) のように記述して枠線を作成します。"

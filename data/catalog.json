@@ -215,37 +215,6 @@
             { "id": "B2-u16", "title": "モーダルの実装", "jsonPath": "data/B2/unit16.json" },
             { "id": "B2-u17", "title": "カード追加画面の実装", "jsonPath": "data/B2/unit17.json" }
           ]
-        },
-        {
-          "id": "B2-preparing",
-          "name": "準備中",
-          "units": [
-            { "id": "B2-u18", "title": "unit18", "jsonPath": "data/B2/unit18.json" },
-            { "id": "B2-u19", "title": "unit19", "jsonPath": "data/B2/unit19.json" },
-            { "id": "B2-u20", "title": "unit20", "jsonPath": "data/B2/unit20.json" },
-            { "id": "B2-u21", "title": "unit21", "jsonPath": "data/B2/unit21.json" },
-            { "id": "B2-u22", "title": "unit22", "jsonPath": "data/B2/unit22.json" },
-            { "id": "B2-u23", "title": "unit23", "jsonPath": "data/B2/unit23.json" },
-            { "id": "B2-u24", "title": "unit24", "jsonPath": "data/B2/unit24.json" },
-            { "id": "B2-u25", "title": "unit25", "jsonPath": "data/B2/unit25.json" },
-            { "id": "B2-u26", "title": "unit26", "jsonPath": "data/B2/unit26.json" },
-            { "id": "B2-u27", "title": "unit27", "jsonPath": "data/B2/unit27.json" }
-          ]
-        },
-        {
-          "id": "B2-flutter-study-management-app",
-          "name": "Flutter 学習管理アプリ",
-          "units": [
-            { "id": "B2-u28", "title": "unit28", "jsonPath": "data/B2/unit28.json" },
-            { "id": "B2-u29", "title": "unit29", "jsonPath": "data/B2/unit29.json" },
-            { "id": "B2-u30", "title": "unit30", "jsonPath": "data/B2/unit30.json" },
-            { "id": "B2-u31", "title": "unit31", "jsonPath": "data/B2/unit31.json" },
-            { "id": "B2-u32", "title": "unit32", "jsonPath": "data/B2/unit32.json" },
-            { "id": "B2-u33", "title": "unit33", "jsonPath": "data/B2/unit33.json" },
-            { "id": "B2-u34", "title": "unit34", "jsonPath": "data/B2/unit34.json" },
-            { "id": "B2-u35", "title": "unit35", "jsonPath": "data/B2/unit35.json" },
-            { "id": "B2-u36", "title": "unit36", "jsonPath": "data/B2/unit36.json" }
-          ]
         }
       ]
     },

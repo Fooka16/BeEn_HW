@@ -280,7 +280,7 @@ function normalizeUnit(raw) {
   const questions = qs.map((q, i) => {
     const id = String(q.id ?? i + 1).trim() || String(i + 1);
     const type = String(q.type ?? "").trim();
-    const question = String(q.question ?? "");
+    const question = stripBrOutsidePre(String(q.question ?? ""));
     const options = Array.isArray(q.options) ? q.options.map(String) : [];
     if (options.length !== 4) throw new Error(`問題${i + 1}: options は4件必要です。`);
     let answer = q.answer;
@@ -294,7 +294,7 @@ function normalizeUnit(raw) {
       question,
       options,
       answer,
-      commentary: String(q.commentary ?? ""),
+      commentary: stripBrOutsidePre(String(q.commentary ?? "")),
     };
   });
   return { unit_title: title, questions };
@@ -485,12 +485,28 @@ function escapeHtml(text) {
 }
 
 /**
+ * &lt;pre&gt; 外の &lt;br&gt; を除去する（問題文とコードの間など）。
+ * @param {string} html
+ */
+function stripBrOutsidePre(html) {
+  const preBlocks = [];
+  let n = 0;
+  const withPlaceholders = String(html).replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (block) => {
+    const token = `\x00PRE${n++}\x00`;
+    preBlocks.push(block);
+    return token;
+  });
+  const stripped = withPlaceholders.replace(/<br\s*\/?>/gi, "");
+  return preBlocks.reduce((s, block, i) => s.replace(`\x00PRE${i}\x00`, block), stripped);
+}
+
+/**
  * &lt;pre&gt; ブロック外の HTML 風タグ（例: &lt;span&gt;）を文字として表示する。
  * 問題文でタグ名を扱う単元向け。&lt;pre&gt; 内のコード表示はそのまま残す。
  * @param {string} html
  */
 function escapeLiteralHtmlTagsOutsidePre(html) {
-  html = String(html).replace(/<br\s*\/?>/gi, "");
+  html = stripBrOutsidePre(html);
   const preBlocks = [];
   let n = 0;
   const withPlaceholders = String(html).replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (block) => {
@@ -507,7 +523,7 @@ function escapeLiteralHtmlTagsOutsidePre(html) {
 function sanitizeRichHtml(html) {
   const tpl = document.createElement("template");
   tpl.innerHTML = escapeLiteralHtmlTagsOutsidePre(html);
-  const allowed = new Set(["PRE", "CODE", "BR", "STRONG", "EM", "B", "I", "SPAN", "P"]);
+  const allowed = new Set(["PRE", "CODE", "STRONG", "EM", "B", "I", "SPAN", "P"]);
   function clean(node) {
     const children = [...node.childNodes];
     for (const child of children) {
@@ -629,7 +645,9 @@ function createOptionButton(label) {
   inner.className = "opt-btn-inner";
   const labelSpan = document.createElement("span");
   labelSpan.className = "opt-btn-label";
-  labelSpan.textContent = String(label).replace(/<br\s*\/?>/gi, "");
+  labelSpan.textContent = /^<br\s*\/?>$/i.test(String(label).trim())
+    ? String(label)
+    : String(label).replace(/<br\s*\/?>/gi, "");
   inner.appendChild(labelSpan);
   btn.appendChild(inner);
   return btn;

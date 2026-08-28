@@ -501,6 +501,25 @@ function stripBrOutsidePre(html) {
 }
 
 /**
+ * &lt;pre&gt; 外の Markdown 風インライン記法（`code` / **bold** / ```block```）を HTML に変換する。
+ * @param {string} html
+ */
+function convertInlineMarkdownOutsidePre(html) {
+  const preBlocks = [];
+  let n = 0;
+  const withPlaceholders = String(html).replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (block) => {
+    const token = `\x00PRE${n++}\x00`;
+    preBlocks.push(block);
+    return token;
+  });
+  let converted = withPlaceholders
+    .replace(/```(\n?[\s\S]*?)```/g, (_, code) => `<pre><code>${escapeHtml(String(code).trim())}</code></pre>`)
+    .replace(/`([^`\n]+)`/g, (_, content) => `<code>${escapeHtml(content)}</code>`)
+    .replace(/\*\*([^*\n]+)\*\*/g, (_, content) => `<strong>${escapeHtml(content)}</strong>`);
+  return preBlocks.reduce((s, block, i) => s.replace(`\x00PRE${i}\x00`, block), converted);
+}
+
+/**
  * &lt;pre&gt; ブロック外の HTML 風タグ（例: &lt;span&gt;）を文字として表示する。
  * 問題文でタグ名を扱う単元向け。&lt;pre&gt; 内のコード表示はそのまま残す。
  * @param {string} html
@@ -514,13 +533,15 @@ function escapeLiteralHtmlTagsOutsidePre(html) {
     preBlocks.push(block);
     return token;
   });
-  const escaped = withPlaceholders.replace(/<[^>]+>/g, (tag) =>
-    tag.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
-  );
+  const escaped = withPlaceholders.replace(/<[^>]+>/g, (tag) => {
+    if (/^<\/?(?:code|strong|em|b|i)\b/i.test(tag)) return tag;
+    return tag.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  });
   return preBlocks.reduce((s, block, i) => s.replace(`\x00PRE${i}\x00`, block), escaped);
 }
 
 function sanitizeRichHtml(html) {
+  html = convertInlineMarkdownOutsidePre(stripBrOutsidePre(html));
   const tpl = document.createElement("template");
   tpl.innerHTML = escapeLiteralHtmlTagsOutsidePre(html);
   const allowed = new Set(["PRE", "CODE", "STRONG", "EM", "B", "I", "SPAN", "P"]);
@@ -635,6 +656,20 @@ function shuffleOptionsOrder(options, answerIndex) {
 }
 
 /**
+ * 選択肢ラベルの Markdown 風記法を HTML に変換する（`code` / **bold**）。
+ * @param {string} label
+ */
+function formatOptionLabel(label) {
+  let s = String(label);
+  if (/^<br\s*\/?>$/i.test(s.trim())) return escapeHtml(s);
+  s = s.replace(/<br\s*\/?>/gi, "");
+  s = escapeHtml(s);
+  return s
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+}
+
+/**
  * @param {string} label
  */
 function createOptionButton(label) {
@@ -645,9 +680,7 @@ function createOptionButton(label) {
   inner.className = "opt-btn-inner";
   const labelSpan = document.createElement("span");
   labelSpan.className = "opt-btn-label";
-  labelSpan.textContent = /^<br\s*\/?>$/i.test(String(label).trim())
-    ? String(label)
-    : String(label).replace(/<br\s*\/?>/gi, "");
+  labelSpan.innerHTML = formatOptionLabel(label);
   inner.appendChild(labelSpan);
   btn.appendChild(inner);
   return btn;

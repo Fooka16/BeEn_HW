@@ -490,6 +490,7 @@ function escapeHtml(text) {
  * @param {string} html
  */
 function escapeLiteralHtmlTagsOutsidePre(html) {
+  html = String(html).replace(/<br\s*\/?>/gi, "");
   const preBlocks = [];
   let n = 0;
   const withPlaceholders = String(html).replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, (block) => {
@@ -628,7 +629,7 @@ function createOptionButton(label) {
   inner.className = "opt-btn-inner";
   const labelSpan = document.createElement("span");
   labelSpan.className = "opt-btn-label";
-  labelSpan.textContent = label;
+  labelSpan.textContent = String(label).replace(/<br\s*\/?>/gi, "");
   inner.appendChild(labelSpan);
   btn.appendChild(inner);
   return btn;

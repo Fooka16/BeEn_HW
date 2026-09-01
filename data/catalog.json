@@ -213,7 +213,11 @@
             { "id": "B2-u14", "title": "ジャンル一覧画面の作成", "jsonPath": "data/B2/unit14.json" },
             { "id": "B2-u15", "title": "カード一覧画面の作成", "jsonPath": "data/B2/unit15.json" },
             { "id": "B2-u16", "title": "モーダルの実装", "jsonPath": "data/B2/unit16.json" },
-            { "id": "B2-u17", "title": "カード追加画面の実装", "jsonPath": "data/B2/unit17.json" }
+            { "id": "B2-u17", "title": "様々な Provider", "jsonPath": "data/B2/unit17.json" },
+            { "id": "B2-u18", "title": "Provider を読み込む", "jsonPath": "data/B2/unit18.json" },
+            { "id": "B2-u19", "title": "Provider の準備とジャンル一覧", "jsonPath": "data/B2/unit19.json" },
+            { "id": "B2-u20", "title": "カード一覧画面", "jsonPath": "data/B2/unit20.json" },
+            { "id": "B2-u21", "title": "暗記カードアプリの Riverpod 書き換え - カード追加画面", "jsonPath": "data/B2/unit21.json" }
           ]
         }
       ]

@@ -217,19 +217,13 @@
           ]
         },
         {
-          "id": "B2-riverpod-state",
-          "name": "Riverpod を用いた状態管理",
+          "id": "B2-state",
+          "name": "状態管理",
           "units": [
-            { "id": "B2-u18", "title": "様々な Provider", "jsonPath": "data/B2/unit18.json" },
-            { "id": "B2-u19", "title": "Provider を読み込む", "jsonPath": "data/B2/unit19.json" }
-          ]
-        },
-        {
-          "id": "B2-anki-riverpod",
-          "name": "暗記カードアプリの Riverpod 書き換え",
-          "units": [
-            { "id": "B2-u20", "title": "Provider の準備とジャンル一覧", "jsonPath": "data/B2/unit20.json" },
-            { "id": "B2-u21", "title": "カード一覧画面", "jsonPath": "data/B2/unit21.json" },
+            { "id": "B2-u18", "title": "Riverpod を用いた状態管理 - 様々な Provider", "jsonPath": "data/B2/unit18.json" },
+            { "id": "B2-u19", "title": "Riverpod を用いた状態管理 - Provider を読み込む", "jsonPath": "data/B2/unit19.json" },
+            { "id": "B2-u20", "title": "暗記カードアプリの Riverpod 書き換え - Provider の準備とジャンル一覧", "jsonPath": "data/B2/unit20.json" },
+            { "id": "B2-u21", "title": "暗記カードアプリの Riverpod 書き換え - カード一覧画面の書き換え", "jsonPath": "data/B2/unit21.json" },
             { "id": "B2-u22", "title": "暗記カードアプリの Riverpod 書き換え - カード追加画面", "jsonPath": "data/B2/unit22.json" }
           ]
         }
